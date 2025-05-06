@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+      body {
+        font-family: Montserrat, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f5f5;
+        color: #003660;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      }
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #eee;
+      }
+      .token-stats {
+        display: flex;
+        justify-content: space-around;
+        margin: 20px 0;
+      }
+      .stat-card {
+        text-align: center;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 8px;
+        min-width: 120px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      }
+      .token-icon {
+        font-size: 24px;
+        margin-bottom: 8px;
+        color: #047C90;
+      }
+      .stat-value {
+        font-size: 24px;
+        font-weight: bold;
+        margin: 5px 0;
+      }
+      .stat-label {
+        font-size: 14px;
+        color: #666;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+      }
+      th, td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+      }
+      th {
+        background-color: #f9f9f9;
+        font-weight: bold;
+      }
+      .token-request {
+        margin-top: 30px;
+        padding: 20px;
+        background: #f9f9f9;
+        border-radius: 8px;
+      }
+      h2 {
+        color: #047C90;
+        margin-top: 30px;
+      }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      select, textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+      }
+      button {
+        background-color:#047C90;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      button:hover {
+        background-color: #3b78e7;
+      }
+      .user-info {
+        text-align: right;
+        font-size: 14px;
+        color: #666;
+      }
+      .loading {
+        text-align: center;
+        padding: 20px;
+      }
+      .message {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+      /* Add styles for form row to display dropdowns side by side */
+      .form-row {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 15px;
+      }
+      .form-row .form-group {
+        flex: 1;
+        margin-bottom: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>EDS 223 Token Dashboard</h1>
+        <div class="user-info">
+          Logged in as: <?= userEmail ?>
+        </div>
+      </div>
+      
+      <div id="loading" class="loading">
+        <p>Loading your token data...</p>
+      </div>
+      
+      <div id="dashboard" style="display: none;">
+        <div class="token-stats">
+          <div class="stat-card">
+            <div class="token-icon"><i class="fas fa-coins"></i></div>
+            <div class="stat-value" id="totalTokens">-</div>
+            <div class="stat-label">Total Tokens</div>
+          </div>
+          <div class="stat-card">
+            <div class="token-icon"><i class="fas fa-shopping-cart"></i></div>
+            <div class="stat-value" id="usedTokens">-</div>
+            <div class="stat-label">Used Tokens</div>
+          </div>
+          <div class="stat-card">
+            <div class="token-icon"><i class="fas fa-wallet"></i></div>
+            <div class="stat-value" id="availableTokens">-</div>
+            <div class="stat-label">Available Tokens</div>
+          </div>
+        </div>
+        
+        <h2>Transaction History</h2>
+        <table id="transactionTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Assignment</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody id="transactionBody">
+            <!-- Transaction rows will be added here -->
+          </tbody>
+        </table>
+        
+        <div class="token-request">
+          <h2>Request to Use Tokens</h2>
+          <div id="requestMessage"></div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="requestType">Request Type:</label>
+              <select id="requestType">
+                <option value="">Select a request type</option>
+                <option value="extension24">24 Hour Assignment Extension (1 Token)</option>
+                <option value="1StepResubmission">1 Step Resubmission (1 Token)</option>
+                <option value="2StepResubmission">2 Step Resubmission (2 Tokens)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="assignmentName">Assignment Name:</label>
+              <select id="assignmentName">
+                <option value="">Select an assignment</option>
+                <option value="Assignment 1">Assignment 1</option>
+                <option value="Assignment 2">Assignment 2</option>
+                <option value="Assignment 3">Assignment 3</option>
+                <option value="Assignment 4">Assignment 4</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="tokenConfirmation" class="checkbox-label">
+              <input type="checkbox" id="tokenConfirmation" required>
+              By checking this box, you have confirmed that you have enough tokens for this request. 
+            </label>
+          </div>
+          <button id="submitRequest">Submit Request</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Load data when page loads
+      window.onload = function() {
+        loadStudentData();
+        loadTransactionHistory();
+      };
+      
+      // Load student data
+      function loadStudentData() {
+        google.script.run
+          .withSuccessHandler(function(data) {
+            if (data) {
+              document.getElementById('totalTokens').textContent = data.totalTokens;
+              document.getElementById('usedTokens').textContent = data.usedTokens;
+              document.getElementById('availableTokens').textContent = data.availableTokens;
+              
+              document.getElementById('loading').style.display = 'none';
+              document.getElementById('dashboard').style.display = 'block';
+            } else {
+              document.getElementById('loading').innerHTML = 
+                '<p>Error: Your account was not found in the system. Please contact your instructor.</p>';
+            }
+          })
+          .withFailureHandler(function(error) {
+            document.getElementById('loading').innerHTML = 
+              '<p>Error loading data: ' + error.message + '</p>';
+          })
+          .getStudentData();
+      }
+      
+      // Load transaction history
+      function loadTransactionHistory() {
+        google.script.run
+          .withSuccessHandler(function(transactions) {
+            const tbody = document.getElementById('transactionBody');
+            tbody.innerHTML = '';
+            
+            if (transactions.length === 0) {
+              const row = document.createElement('tr');
+              row.innerHTML = '<td colspan="4" style="text-align: center;">No transactions found</td>';
+              tbody.appendChild(row);
+              return;
+            }
+            
+            transactions.forEach(function(transaction) {
+              const row = document.createElement('tr');
+              
+              const dateCell = document.createElement('td');
+              dateCell.textContent = transaction.date;
+              row.appendChild(dateCell);
+              
+              const descCell = document.createElement('td');
+              descCell.textContent = transaction.description;
+              row.appendChild(descCell);
+              
+              const assignmentCell = document.createElement('td');
+              assignmentCell.textContent = transaction.assignment || 'N/A';
+              row.appendChild(assignmentCell);
+              
+              const amountCell = document.createElement('td');
+              amountCell.className = transaction.type === 'earned' ? 'earned' : 'spent';
+              if (transaction.type === 'earned') {
+                amountCell.textContent = '+' + transaction.amount;
+              } else {
+                amountCell.textContent = transaction.amount;
+              }
+              row.appendChild(amountCell);
+              
+              tbody.appendChild(row);
+            });
+          })
+          .withFailureHandler(function(error) {
+            const tbody = document.getElementById('transactionBody');
+            tbody.innerHTML = '<tr><td colspan="4">Error loading transactions</td></tr>';
+          })
+          .getTransactionHistory();
+      }
+      
+      // Handle token request submission
+      document.getElementById('submitRequest').addEventListener('click', function() {
+        const requestType = document.getElementById('requestType').value;
+        const assignmentName = document.getElementById('assignmentName').value;
+        const tokenConfirmation = document.getElementById('tokenConfirmation').checked;
+        
+        if (!requestType) {
+          showMessage('Please select a request type', 'error');
+          return;
+        }
+        
+        if (!assignmentName) {
+          showMessage('Please select an assignment', 'error');
+          return;
+        }
+
+        if (!tokenConfirmation) {
+          showMessage('Please confirm that you have enough tokens', 'error');
+          return;
+        }
+        
+        google.script.run
+          .withSuccessHandler(function(result) {
+            if (result.success) {
+              showMessage(result.message, 'success');
+              document.getElementById('requestType').value = '';
+              document.getElementById('assignmentName').value = '';
+              document.getElementById('tokenConfirmation').checked = false;
+              
+              // Refresh data
+              loadStudentData();
+              loadTransactionHistory();
+            } else {
+              showMessage(result.message, 'error');
+            }
+          })
+          .withFailureHandler(function(error) {
+            showMessage('Error submitting request: ' + error.message, 'error');
+          })
+          .submitTokenRequest(requestType, assignmentName);
+      });
+      
+      function showMessage(message, type) {
+        const messageElement = document.getElementById('requestMessage');
+        messageElement.className = 'message ' + type;
+        messageElement.textContent = message;
+        
+        // Clear message after 5 seconds
+        setTimeout(function() {
+          messageElement.textContent = '';
+          messageElement.className = '';
+        }, 5000);
+      }
+    </script>
+  </body>
+</html>
