@@ -1,57 +1,117 @@
 // This is the Google Apps Script code that will power your token tracker dashboard
 
 // Global variables
-let SHEET_ID = '1NN8VhxDp7kxuS7M46Yg_bu-DvTydzgQlTJyyg7E3EPI'; 
+let SHEET_ID = 'UPDATE WITH SHEET ID'; 
 let STUDENT_SHEET = 'Students';
 let TRANSACTIONS_SHEET = 'Transactions';
+const GRADEBOOK_SHEET = 'Gradebook';
+const ATTENDANCE_SHEET = 'Attendance';
 
 /**
  * Creates the web app UI
  */
 function doGet(e) {
   const userEmail = Session.getActiveUser().getEmail();
-  
-  // Check if user is authenticated
+
   if (!userEmail) {
     return HtmlService.createHtmlOutput('<h1>Please log in with your school Google account to access the token dashboard.</h1>')
       .setTitle('EDS 223 Token Dashboard - Login Required');
   }
-  
-  // Create the main UI
+
   let htmlOutput = HtmlService.createTemplateFromFile('Index');
   htmlOutput.userEmail = userEmail;
-  
+
   return htmlOutput.evaluate()
-    .setTitle('EDS 223 Token Dashboard')
+    .setTitle('UPDATE WITH COURSE TITLE')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 /**
- * Gets student data for the current user
+ * Gets all student data (tokens, grades, attendance, check-ins) for the current user
  */
 function getStudentData() {
   const userEmail = Session.getActiveUser().getEmail();
   const ss = SpreadsheetApp.openById(SHEET_ID);
+  
+  // 1. Get student token data from the Students sheet
   const studentSheet = ss.getSheetByName(STUDENT_SHEET);
-  
   const studentData = studentSheet.getDataRange().getValues();
-  const headers = studentData.shift(); // Get headers and remove from data
-  
-  // Find the current student's row
+  const studentHeaders = studentData.shift();
+
+  let studentDashboardData = null;
   for (let i = 0; i < studentData.length; i++) {
-    if (studentData[i][headers.indexOf('Email')] === userEmail) {
-      return {
-        name: studentData[i][headers.indexOf('Name')],
+    if (studentData[i][studentHeaders.indexOf('Email')] === userEmail) {
+      studentDashboardData = {
+        name: studentData[i][studentHeaders.indexOf('Name')],
         email: userEmail,
-        totalTokens: studentData[i][headers.indexOf('TotalTokens')],
-        usedTokens: studentData[i][headers.indexOf('UsedTokens')],
-        availableTokens: studentData[i][headers.indexOf('TotalTokens')] - studentData[i][headers.indexOf('UsedTokens')]
+        totalTokens: studentData[i][studentHeaders.indexOf('TotalTokens')],
+        usedTokens: studentData[i][studentHeaders.indexOf('UsedTokens')]
       };
+      studentDashboardData.availableTokens = studentDashboardData.totalTokens - studentDashboardData.usedTokens;
+      break;
     }
   }
+
+  if (!studentDashboardData) {
+    return null; // Student not found
+  }
+
+  // 2. Get grade data from the Gradebook sheet AND check-in count
+  const gradebookSheet = ss.getSheetByName(GRADEBOOK_SHEET);
+  const gradebookData = gradebookSheet.getDataRange().getValues();
+  const gradebookHeaders = gradebookData.shift();
   
-  return null; // Student not found
+  const studentGrades = [];
+// UPDATE WITH ASSIGNMENTS FOR YOUR COURSE 
+  const hwAssignments = ['HW #1', 'HW #2', 'HW #3', 'HW #4']; 
+  let totalCheckins = 0;
+
+  for (let i = 0; i < gradebookData.length; i++) {
+    if (gradebookData[i][gradebookHeaders.indexOf('Email')] === userEmail) {
+      // Loop through the defined order to get grades
+      hwAssignments.forEach(hwName => {
+        const grade = gradebookData[i][gradebookHeaders.indexOf(hwName)] || '-';
+        studentGrades.push({
+          assignment: hwName,
+          grade: grade
+        });
+      });
+      
+      // UPDATE WITH CHECK INS FOR COURSE (IF APPLICABLE)
+      const headers = gradebookHeaders.slice(gradebookHeaders.indexOf('CheckIn#1'));
+      for (let j = 0; j < headers.length; j++) {
+        if (headers[j].startsWith('CheckIn#') && gradebookData[i][gradebookHeaders.indexOf(headers[j])] === 1) {
+          totalCheckins++;
+        }
+      }
+      break;
+    }
+  }
+  studentDashboardData.grades = studentGrades;
+  studentDashboardData.totalCheckins = totalCheckins; // Add the new metric
+  
+  // 3. Get attendance data from the Attendance sheet
+  const attendanceSheet = ss.getSheetByName(ATTENDANCE_SHEET);
+  const attendanceData = attendanceSheet.getDataRange().getValues();
+  const attendanceHeaders = attendanceData.shift();
+
+  let attendedCount = 0;
+  for (let i = 0; i < attendanceData.length; i++) {
+    if (attendanceData[i][attendanceHeaders.indexOf('Email')] === userEmail) {
+      for (let j = 2; j < attendanceData[i].length; j++) {
+        if (attendanceData[i][j] === 1) {
+          attendedCount++;
+        }
+      }
+      break;
+    }
+  }
+  studentDashboardData.attendedClasses = attendedCount;
+
+  return studentDashboardData;
 }
+
+ 
 
 /**
  * Gets transaction history for the current user
@@ -60,31 +120,26 @@ function getTransactionHistory() {
   const userEmail = Session.getActiveUser().getEmail();
   const ss = SpreadsheetApp.openById(SHEET_ID);
   const transactionSheet = ss.getSheetByName(TRANSACTIONS_SHEET);
-  
+
   const transactionData = transactionSheet.getDataRange().getValues();
-  const headers = transactionData.shift(); // Get headers and remove from data
-  
-  // Find assignment column index
-  const assignmentColIndex = headers.indexOf('Assignment');
-  
-  // Filter transactions for current student
-  const studentTransactions = transactionData.filter(row => 
+  const headers = transactionData.shift();
+
+  const studentTransactions = transactionData.filter(row =>
     row[headers.indexOf('Email')] === userEmail
   ).map(row => {
     return {
       date: Utilities.formatDate(new Date(row[headers.indexOf('Date')]), Session.getScriptTimeZone(), 'MM/dd/yyyy'),
       description: row[headers.indexOf('Description')],
       amount: row[headers.indexOf('Amount')],
-      type: row[headers.indexOf('Type')], // 'earned' or 'spent'
-      assignment: assignmentColIndex !== -1 ? row[assignmentColIndex] : 'N/A'
+      type: row[headers.indexOf('Type')],
+      assignment: row[headers.indexOf('Assignment')] || 'N/A'
     };
   });
-  
   return studentTransactions;
 }
 
 /**
- * Allows students to submit a token spending request
+ * Allows students to submit a token spending request.
  */
 function submitTokenRequest(requestType, assignmentName) {
   const userEmail = Session.getActiveUser().getEmail();
@@ -92,93 +147,89 @@ function submitTokenRequest(requestType, assignmentName) {
   const transactionSheet = ss.getSheetByName(TRANSACTIONS_SHEET);
   const studentSheet = ss.getSheetByName(STUDENT_SHEET);
 
-  const studentSheetData = studentSheet.getDataRange().getValues();
-  const studentHeaders = studentSheetData[0];
-  const emailCol = studentHeaders.indexOf("Email");
-  const totalCol = studentHeaders.indexOf("TotalTokens");
-  const usedCol = studentHeaders.indexOf("UsedTokens");
-  const availCol = studentHeaders.indexOf("Available Tokens");
-
-  const transData = transactionSheet.getDataRange().getValues();
-  const transHeaders = transData[0];
-  const transEmailCol = transHeaders.indexOf("Email");
-  const transAmountCol = transHeaders.indexOf("Amount");
-  const transTypeCol = transHeaders.indexOf("Type");
-  const assignmentCol = transHeaders.indexOf("Assignment");
-
-  const userTransactions = transData.filter(row => row[transEmailCol] === userEmail);
-
-  const totalEarned = userTransactions
-    .filter(row => row[transTypeCol] === "earned")
-    .reduce((sum, row) => sum + Number(row[transAmountCol]), 0);
-
-  const totalUsed = userTransactions
-    .filter(row => row[transTypeCol] === "spent")
-    .reduce((sum, row) => sum + Math.abs(Number(row[transAmountCol])), 0);
-
-  const available = totalEarned - totalUsed;
-
-  // Determine request cost
   let tokenCost = 0;
   let description = '';
 
-  if (requestType === 'extension24') {
-    tokenCost = 1;
-    description = 'Assignment Extension (24 Hours)';
-  } else if (requestType === '1StepResubmission') {
-    tokenCost = 1;
-    description = '1 Step Resubmission';
-  } else if (requestType === '2StepResubmission') {
-    tokenCost = 2;
-    description = '2 Step Resubmission';
-  } else {
-    return { success: false, message: 'Invalid request type' };
-  }
-
-  // Final token check
-  if (available < tokenCost) {
-    return { success: false, message:"🚫 You don't have enough tokens for this request. You need " + tokenCost +
-             " token" + (tokenCost > 1 ? "s" : "") + ", but you  have " + available + "." };
-  }
-
-  // Get the student name
-  let studentName = "";
-  for (let i = 1; i < studentSheetData.length; i++) {
-    if (studentSheetData[i][emailCol] === userEmail) {
-      studentName = studentSheetData[i][studentHeaders.indexOf("Name")];
+  switch (requestType) {
+    case 'extension24':
+      tokenCost = 1;
+      description = 'Assignment Extension (24 Hours)';
       break;
-    }
-  }
-
-  // Prepare transaction row
-  const newRow = [new Date(), userEmail, studentName, -tokenCost, description, "spent", ""];
-  
-  // Add assignment name if the column exists
-  if (assignmentCol !== -1) {
-    // Make sure the row has enough elements
-    while (newRow.length <= assignmentCol) {
-      newRow.push("");
-    }
-    newRow[assignmentCol] = assignmentName;
-  }
-
-  // Append transaction
-  transactionSheet.appendRow(newRow);
-
-  // Update Students sheet
-  for (let i = 1; i < studentSheetData.length; i++) {
-    if (studentSheetData[i][emailCol] === userEmail) {
-      studentSheet.getRange(i + 1, totalCol + 1).setValue(totalEarned);
-      studentSheet.getRange(i + 1, usedCol + 1).setValue(totalUsed + tokenCost);
-      studentSheet.getRange(i + 1, availCol + 1).setValue(totalEarned - (totalUsed + tokenCost));
+    case '1StepResubmission':
+      tokenCost = 1;
+      description = '1 Step Resubmission';
       break;
-    }
+    case '2StepResubmission':
+      tokenCost = 2;
+      description = '2 Step Resubmission';
+      break;
+    default:
+      return { success: false, message: 'Invalid request type.' };
   }
 
-  return {
-    success: true,
-    message: 'Your request has been submitted and tokens have been deducted.'
-  };
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000); 
+
+  try {
+    const studentData = studentSheet.getDataRange().getValues();
+    const headers = studentData[0];
+    const emailColIndex = headers.indexOf("Email");
+    const totalTokensColIndex = headers.indexOf("TotalTokens");
+    const usedTokensColIndex = headers.indexOf("UsedTokens");
+    const nameColIndex = headers.indexOf("Name");
+
+    let studentRowIndex = -1;
+    for (let i = 1; i < studentData.length; i++) {
+      if (studentData[i][emailColIndex] === userEmail) {
+        studentRowIndex = i;
+        break;
+      }
+    }
+
+    if (studentRowIndex === -1) {
+      return { success: false, message: '⚠️ Student not found in the Students sheet.' };
+    }
+    
+    const studentRowData = studentSheet.getRange(studentRowIndex + 1, 1, 1, headers.length).getValues()[0];
+    
+    const totalTokens = studentRowData[totalTokensColIndex];
+    const usedTokens = studentRowData[usedTokensColIndex];
+    const availableTokens = totalTokens - usedTokens;
+    const studentName = studentRowData[nameColIndex];
+
+    if (availableTokens < tokenCost) {
+      return {
+        success: false,
+        message: "🚫 You don't have enough tokens for this request. You need " +
+          tokenCost + " token(s), but you only have " + availableTokens + "."
+      };
+    }
+
+    const newTransaction = [
+      new Date(),
+      userEmail,
+      studentName,
+      -tokenCost,
+      description,
+      assignmentName || "",
+      "spent"
+    ];
+    transactionSheet.appendRow(newTransaction);
+
+    const newUsedTokens = usedTokens + tokenCost;
+    studentSheet.getRange(studentRowIndex + 1, usedTokensColIndex + 1).setValue(newUsedTokens);
+
+    return {
+      success: true,
+      message: '✅ Your request has been submitted and tokens have been deducted.'
+    };
+
+  } catch (e) {
+    Logger.log(e.toString());
+    return { success: false, message: 'An error occurred while processing your request. Please try again.' };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
