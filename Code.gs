@@ -15,7 +15,7 @@ function doGet(e) {
 
   if (!userEmail) {
     return HtmlService.createHtmlOutput('<h1>Please log in with your school Google account to access the token dashboard.</h1>')
-      .setTitle('EDS 223 Token Dashboard - Login Required');
+      .setTitle('[UPDATE WITH COURSE TITLE] Token Dashboard - Login Required');
   }
 
   let htmlOutput = HtmlService.createTemplateFromFile('Index');
